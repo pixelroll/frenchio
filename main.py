@@ -27,6 +27,7 @@ import aiohttp
 from aiohttp import web
 import aiofiles
 import asyncio
+from urllib.parse import urlencode, urlsplit
 from services.tmdb import TMDBService
 from services.unit3d import Unit3DService
 from services.alldebrid import AllDebridService
@@ -60,7 +61,7 @@ if HTTP_PROXY or HTTPS_PROXY:
         logging.info(f"  HTTPS_PROXY: {HTTPS_PROXY}")
 
 # Version de l'application
-APP_VERSION = "1.4.7"
+APP_VERSION = "1.4.8"
 
 # Stremio Addons Config (signature)
 STREMIO_ADDONS_CONFIG = {
@@ -158,6 +159,43 @@ def decode_config(config_str):
     except Exception as e:
         logging.error(f"Config Decode Error: {e}")
         return None
+
+
+def build_mediaflow_proxy_url(stream_url, mediaflow_config, filename=None):
+    """
+    Construit une URL MediaFlow Proxy à partir d'une URL de stream finale.
+
+    MediaFlow est utilisé ici comme proxy optionnel en sortie, après résolution
+    par le provider de débridage ou qBittorrent.
+    """
+    if not stream_url or not mediaflow_config:
+        return stream_url
+
+    base_url = (mediaflow_config.get('proxy_url') or '').strip().rstrip('/')
+    if not base_url:
+        return stream_url
+
+    stream_path = urlsplit(stream_url).path.lower()
+    is_hls = stream_path.endswith('.m3u8') or '.m3u8' in stream_path
+    endpoint = '/proxy/hls/manifest.m3u8' if is_hls else '/proxy/stream'
+
+    params = {'d': stream_url}
+    api_password = (mediaflow_config.get('api_password') or '').strip()
+    if api_password:
+        params['api_password'] = api_password
+
+    if endpoint == '/proxy/stream' and filename:
+        params['filename'] = filename
+
+    proxied_url = f"{base_url}{endpoint}?{urlencode(params)}"
+    logging.info(f"MediaFlow proxy enabled for endpoint {endpoint}")
+    return proxied_url
+
+
+def finalize_stream_url(stream_url, config, filename=None):
+    """Applique les post-traitements optionnels au lien final de lecture."""
+    mediaflow_config = config.get('mediaflow')
+    return build_mediaflow_proxy_url(stream_url, mediaflow_config, filename=filename)
 
 async def handle_manifest(request):
     """Retourne le manifest de l'addon"""
@@ -884,7 +922,7 @@ async def handle_resolve(request):
         
         if stream_url:
             logging.info(f"qBittorrent stream ready: {stream_url}")
-            raise web.HTTPFound(stream_url)
+            raise web.HTTPFound(finalize_stream_url(stream_url, config))
         else:
             return web.Response(status=404, text="Could not start qBittorrent stream")
     
@@ -904,7 +942,7 @@ async def handle_resolve(request):
         )
         
         if stream_url:
-            raise web.HTTPFound(stream_url)
+            raise web.HTTPFound(finalize_stream_url(stream_url, config))
         else:
             return web.Response(status=404, text="Could not resolve stream or file not found in torrent")
     
@@ -936,7 +974,7 @@ async def handle_resolve(request):
         
         if stream_url:
             logging.info(f"TorBox resolve: Redirecting to: {stream_url}")
-            raise web.HTTPFound(stream_url)
+            raise web.HTTPFound(finalize_stream_url(stream_url, config))
         else:
             logging.error(f"TorBox resolve: Failed to get stream URL for hash {info_hash}")
             return web.Response(status=404, text="Could not resolve TorBox stream")
@@ -960,7 +998,7 @@ async def handle_resolve(request):
         
         if stream_url:
             logging.info(f"DebridLink resolve: Redirecting to: {stream_url}")
-            raise web.HTTPFound(stream_url)
+            raise web.HTTPFound(finalize_stream_url(stream_url, config))
         else:
             logging.error(f"DebridLink resolve: Failed to get stream URL for hash {info_hash}")
             return web.Response(status=404, text="Could not resolve DebridLink stream")
@@ -984,7 +1022,7 @@ async def handle_resolve(request):
         
         if stream_url:
             logging.info(f"Real-Debrid resolve: Redirecting to: {stream_url}")
-            raise web.HTTPFound(stream_url)
+            raise web.HTTPFound(finalize_stream_url(stream_url, config))
         else:
             logging.error(f"Real-Debrid resolve: Failed to get stream URL for hash {info_hash}")
             return web.Response(status=404, text="Could not resolve Real-Debrid stream")

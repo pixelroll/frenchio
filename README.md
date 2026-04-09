@@ -6,7 +6,7 @@
 [![GHCR](https://img.shields.io/badge/ghcr-latest-blue?logo=docker)](https://github.com/aymene69/frenchio/pkgs/container/frenchio)
 [![Build](https://img.shields.io/github/actions/workflow/status/aymene69/frenchio/docker-publish.yml?branch=main)](https://github.com/aymene69/frenchio/actions)
 
-**Frenchio** est un addon Stremio puissant qui permet de rechercher et streamer du contenu depuis plusieurs trackers privés/semi-privés français avec support de débridage (AllDebrid, TorBox, Debrid-Link) et streaming direct via qBittorrent.
+**Frenchio** est un addon Stremio puissant qui permet de rechercher et streamer du contenu depuis plusieurs trackers privés/semi-privés français avec support de débridage (AllDebrid, TorBox, Debrid-Link), proxy MediaFlow optionnel et streaming direct via qBittorrent.
 
 Suite à la fermeture de YGG aux services de debrid, cet addon permet de continuer à profiter de contenu français de qualité en connectant vos trackers privés préférés directement à Stremio.
 
@@ -14,6 +14,7 @@ Suite à la fermeture de YGG aux services de debrid, cet addon permet de continu
 
 - 🔍 **Recherche multi-trackers** : UNIT3D, Sharewood, YGGTorrent, ABNormal, La-Cale
 - ⚡ **Débridage multi-services** : AllDebrid, TorBox, Debrid-Link - Streaming instantané des torrents cachés
+- proxy **MediaFlow** optionnel : transite le lien final de lecture via votre instance MediaFlow
 - 📥 **qBittorrent Support** : Streaming direct pour les torrents non-cachés
 - 🎯 **Sélection intelligente** : Détection automatique des épisodes dans les packs de saisons
 - 🌐 **Recherche parallèle** : Requêtes simultanées pour des résultats ultra-rapides
@@ -94,6 +95,8 @@ Ouvrez votre navigateur sur : `http://localhost:7777/configure`
 - **AllDebrid API Key** : Votre clé API pour le débridage instantané - [Obtenir](https://alldebrid.com/apikeys/)
 - **TorBox API Key** : Alternative à AllDebrid - [Obtenir](https://torbox.app/settings)
 - **Debrid-Link API Key** : Alternative à AllDebrid - [Obtenir](https://debrid-link.com/webapp/apikey)
+- **MediaFlow Proxy URL** : Optionnel. Exemple : `https://mediaflow.mondomaine.com`
+- **MediaFlow API Password** : Optionnel si votre instance MediaFlow est protégée
 
 #### Trackers UNIT3D (Optionnel)
 Ajoutez un ou plusieurs trackers compatibles UNIT3D :

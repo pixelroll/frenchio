@@ -536,6 +536,18 @@
                 <span class="help-text">Alternative à AllDebrid. <a href="https://real-debrid.com/apitoken"
                         target="_blank">Obtenir ma clé</a></span>
             </div>
+
+            <div class="form-group" style="margin-top: 20px;">
+                <label for="mediaflowProxyUrl">URL MediaFlow Proxy <span class="badge">Optionnel</span></label>
+                <input type="url" id="mediaflowProxyUrl" placeholder="https://mediaflow.mondomaine.com">
+                <span class="help-text">Proxy optionnel appliqué au lien final de lecture. Utile si vous faites transiter les streams via MediaFlow.</span>
+            </div>
+
+            <div class="form-group">
+                <label for="mediaflowApiPassword">Mot de passe API MediaFlow</label>
+                <input type="password" id="mediaflowApiPassword" placeholder="Laisser vide si non utilisé">
+                <span class="help-text">Optionnel. Sera ajouté à l'URL du proxy si votre instance MediaFlow est protégée.</span>
+            </div>
         </div>
 
         <!-- Optionnel: qBittorrent -->
@@ -1031,6 +1043,11 @@
 
             updateDebridFields();
 
+            if (prefillConfig.mediaflow) {
+                document.getElementById('mediaflowProxyUrl').value = prefillConfig.mediaflow.proxy_url || '';
+                document.getElementById('mediaflowApiPassword').value = prefillConfig.mediaflow.api_password || '';
+            }
+
             // qBit
             if (prefillConfig.qbittorrent) {
                 document.getElementById('qbitUrl').value = prefillConfig.qbittorrent.host || '';
@@ -1173,6 +1190,8 @@
             const qbitUser = document.getElementById('qbitUser').value.trim();
             const qbitPass = document.getElementById('qbitPass').value.trim();
             const qbitPublicUrl = document.getElementById('qbitPublicUrl').value.trim();
+            const mediaflowProxyUrl = document.getElementById('mediaflowProxyUrl').value.trim().replace(/\/$/, '');
+            const mediaflowApiPassword = document.getElementById('mediaflowApiPassword').value.trim();
 
             const hasQbit = qbitUrl && qbitPublicUrl;
 
@@ -1241,6 +1260,10 @@
                 max_size: maxSize,
                 sort_by: sortBy,
                 providers_order: providersOrder,
+                mediaflow: mediaflowProxyUrl ? {
+                    proxy_url: mediaflowProxyUrl,
+                    api_password: mediaflowApiPassword
+                } : null,
                 qbittorrent: hasQbit ? {
                     host: qbitUrl,
                     username: qbitUser,
