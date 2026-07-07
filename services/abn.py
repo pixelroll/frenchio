@@ -1,8 +1,8 @@
 import aiohttp
 import logging
 import asyncio
-from html.parser import HTMLParser
 import re
+from urllib.parse import urlencode
 
 class ABNService:
     """
@@ -123,13 +123,11 @@ class ABNService:
         # Construire l'URL avec les catégories
         # ABN utilise SelectedCats=X pour chaque catégorie
         if 'categories' in params and params['categories']:
-            from urllib.parse import urlencode
             # Construire les params avec les catégories multiples
             cat_params = '&'.join([f'SelectedCats={cat}' for cat in params['categories']])
             base_params = urlencode(search_params)
             full_url = f"{search_url}?{base_params}&{cat_params}"
         else:
-            from urllib.parse import urlencode
             full_url = f"{search_url}?{urlencode(search_params)}"
         
         try:

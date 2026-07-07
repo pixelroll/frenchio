@@ -1,6 +1,7 @@
 import aiohttp
 import logging
 import asyncio
+import re
 
 class DebridLinkService:
     def __init__(self, api_key):
@@ -63,16 +64,17 @@ class DebridLinkService:
         cached_count = sum(1 for v in availability.values() if v)
         logging.info(f"DebridLink: {cached_count}/{len(hashes)} hashes are cached")
         
-        # 4. Cleanup : supprimer uniquement les torrents qu'on a ajouté
+        # Cleanup en arrière-plan — ne bloque pas le retour des résultats
         if ids_to_delete:
-            logging.info(f"DebridLink: Cleaning up {len(ids_to_delete)} torrents we added")
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-            }
-            async with aiohttp.ClientSession(trust_env=True) as session:
-                delete_tasks = [self._remove_torrent(session, headers, tid) for tid in ids_to_delete]
-                await asyncio.gather(*delete_tasks, return_exceptions=True)
-        
+            async def _cleanup():
+                headers = {"Authorization": f"Bearer {self.api_key}"}
+                async with aiohttp.ClientSession(trust_env=True) as session:
+                    await asyncio.gather(
+                        *[self._remove_torrent(session, headers, tid) for tid in ids_to_delete],
+                        return_exceptions=True
+                    )
+            asyncio.create_task(_cleanup())
+
         return availability
     
     async def _check_single_hash(self, hash_value):
@@ -180,13 +182,15 @@ class DebridLinkService:
                     selected_file = None
                     
                     if season is not None and episode is not None:
-                        # Série : trouver le fichier correspondant à l'épisode
-                        import re
-                        s_pattern = f"S{season:02d}E{episode:02d}"
-                        
+                        patterns = [
+                            rf"S{season:02d}E{episode:02d}",
+                            rf"S{season}E{episode:02d}",
+                            rf"{season}x{episode:02d}",
+                            rf"{season}x{episode}\b",
+                        ]
                         for f in files:
                             filename = f.get('name', '')
-                            if re.search(s_pattern, filename, re.IGNORECASE):
+                            if any(re.search(p, filename, re.IGNORECASE) for p in patterns):
                                 selected_file = f
                                 break
                         

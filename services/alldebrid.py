@@ -2,6 +2,8 @@ import aiohttp
 import logging
 import math
 import json
+import re
+import traceback
 import binascii
 import asyncio
 
@@ -81,32 +83,31 @@ class AllDebridService:
             try:
                 for i in range(0, len(magnet_ids), batch_size):
                     batch = magnet_ids[i:i + batch_size]
-                    tasks = []
-                    for mid in batch:
+                    async def _delete_one(mid):
                         data = {
                             "agent": self.agent,
                             "apikey": self.api_key,
                             "id": mid
                         }
-                        tasks.append(session.post(delete_url, data=data))
-                    
-                    results = await asyncio.gather(*tasks, return_exceptions=True)
-                    
+                        async with session.post(delete_url, data=data) as resp:
+                            if resp.status == 200:
+                                js = await resp.json()
+                                if js.get('status') == 'success':
+                                    return True
+                                logging.warning(f"Cleanup: Delete magnet {mid} failed: HTTP {resp.status}, response={js}")
+                            else:
+                                logging.warning(f"Cleanup: Delete magnet {mid} failed: HTTP {resp.status}")
+                        return False
+
+                    results = await asyncio.gather(*[_delete_one(mid) for mid in batch], return_exceptions=True)
+
                     for mid, res in zip(batch, results):
-                        ok = False
-                        if isinstance(res, aiohttp.ClientResponse):
-                            try:
-                                js = await res.json()
-                                if res.status == 200 and js.get('status') == 'success':
-                                    success_count += 1
-                                    ok = True
-                                else:
-                                    logging.warning(f"Cleanup: Delete magnet {mid} failed: HTTP {res.status}, response={js}")
-                            except Exception as e:
-                                logging.warning(f"Cleanup: Delete magnet {mid} parse error: {e}")
-                        elif isinstance(res, Exception):
+                        if isinstance(res, Exception):
                             logging.warning(f"Cleanup: Delete magnet {mid} exception: {res}")
-                        if not ok:
+                            failed_ids.append(mid)
+                        elif res:
+                            success_count += 1
+                        else:
                             failed_ids.append(mid)
                     
                     # Petite pause entre les lots pour ne pas rate-limit
@@ -219,12 +220,9 @@ class AllDebridService:
                 except Exception as e:
                     logging.error(f"Erreur AllDebrid Upload Batch {i}: {e}")
         
-        # Suppression des magnets qu'on a uploadé (pas les pré-existants)
-        try:
-            await asyncio.sleep(1)
-            await self._delete_magnets(uploaded_ids)
-        except Exception as e:
-            logging.error(f"Post-check cleanup failed: {e}")
+        # Suppression en arrière-plan — ne bloque pas le retour des résultats
+        if uploaded_ids:
+            asyncio.create_task(self._delete_magnets(uploaded_ids))
 
         return all_availability
 
@@ -283,7 +281,6 @@ class AllDebridService:
 
             except Exception as e:
                 logging.error(f"❌ Exception AD Upload: {e}")
-                import traceback
                 logging.error(traceback.format_exc())
                 return None
 
@@ -356,7 +353,6 @@ class AllDebridService:
                     
             except Exception as e:
                 logging.error(f"❌ Exception AD Files: {e}")
-                import traceback
                 logging.error(traceback.format_exc())
                 return None
                 
@@ -372,7 +368,6 @@ class AllDebridService:
         
         # Si épisode spécifique
         if season is not None and episode is not None:
-            import re
             # Patterns pour S01E01, 1x01, etc.
             s_str = f"{int(season):02d}"
             e_str = f"{int(episode):02d}"
@@ -401,7 +396,7 @@ class AllDebridService:
         
         # Si aucun lien avec extension vidéo, on exclut au moins les extensions interdites
         if not video_links:
-            video_links = [l for l in l if not any(l.get('filename', '').lower().endswith(ext) for ext in bad_extensions)]
+            video_links = [lnk for lnk in links if not any(lnk.get('filename', '').lower().endswith(ext) for ext in bad_extensions)]
 
         if not video_links:
             logging.error(f"❌ AD _select_link: No video files found in torrent")
@@ -434,6 +429,5 @@ class AllDebridService:
                     logging.error(f"❌ AD Unlock failed: {data}")
         except Exception as e:
             logging.error(f"❌ Exception AD Unlock: {e}")
-            import traceback
             logging.error(traceback.format_exc())
         return None

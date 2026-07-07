@@ -177,13 +177,15 @@ def parse_torrent_name(name):
     release_type = ""
     if "WEBRIP" in name_upper:
         release_type = "WebRIP"
-    elif "WEB-DL" in name_upper or "WEBDL" in name_upper or "WEB" in name_upper:
+    elif "WEB-DL" in name_upper or "WEBDL" in name_upper:
+        release_type = "WEB-DL"
+    elif re.search(r'\bWEB\b', name_upper):
         release_type = "WEB-DL"
     elif any(br in name_upper for br in ["BRRIP", "BDRIP", "BLURAY", "BDLIGHT"]):
         release_type = "BDRip"
     elif "DVDRIP" in name_upper:
         release_type = "DVDRip"
-    elif "CAM" in name_upper or "TS" in name_upper:
+    elif re.search(r'\bCAM\b', name_upper) or re.search(r'\bHDTS\b|\bHD-TS\b|\bTS\b', name_upper):
         release_type = "CAM"
 
     # Langues
