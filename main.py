@@ -39,6 +39,7 @@ from services.abn import ABNService
 from services.c411 import C411Service
 from services.torr9 import Torr9Service
 from services.qbittorrent import QBittorrentService
+from services.tr4ker import Tr4kerService
 from utils import format_size, parse_torrent_name, check_season_episode, check_title_match, is_video_file
 
 # Configuration du logging
@@ -59,7 +60,7 @@ if HTTP_PROXY or HTTPS_PROXY:
         logging.info(f"  HTTPS_PROXY: {HTTPS_PROXY}")
 
 # Version de l'application
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.5.1"
 
 # Stremio Addons Config (signature)
 STREMIO_ADDONS_CONFIG = {
@@ -452,11 +453,24 @@ async def handle_stream(request):
     if config.get('torr9_passkey'):
         logging.info("Starting Torr9 search")
         torr9_service = Torr9Service(config.get('torr9_passkey'))
-        
+
         if stream_type == 'movie':
             tasks.append(torr9_service.search_movie(target_title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
         elif stream_type == 'series':
             tasks.append(torr9_service.search_series(target_title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
+    else:
+        async def empty(): return []
+        tasks.append(empty())
+
+    # Tâche Tr4ker
+    if config.get('tr4ker_apikey'):
+        logging.info("Starting Tr4ker search")
+        tr4ker_service = Tr4kerService(config.get('tr4ker_apikey'))
+
+        if stream_type == 'movie':
+            tasks.append(tr4ker_service.search_movie(target_title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
+        elif stream_type == 'series':
+            tasks.append(tr4ker_service.search_series(target_title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
     else:
         async def empty(): return []
         tasks.append(empty())
@@ -479,15 +493,16 @@ async def handle_stream(request):
         abn_results = safe(2)
         c411_results = safe(3)
         torr9_results = safe(4)
+        tr4ker_results = safe(5)
     finally:
         # Fermer la session ABN proprement
         if abn_service:
             await abn_service.close()
 
-    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}, C411={len(c411_results)}, Torr9={len(torr9_results)}")
+    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}, C411={len(c411_results)}, Torr9={len(torr9_results)}, Tr4ker={len(tr4ker_results)}")
 
     # Fusion et Déduplication
-    all_torrents = unit3d_results + ygg_results + abn_results + c411_results + torr9_results
+    all_torrents = unit3d_results + ygg_results + abn_results + c411_results + torr9_results + tr4ker_results
     
     # Filtrage par taille si configuré
     max_size_gb = config.get('max_size', 0)
@@ -567,7 +582,7 @@ async def handle_stream(request):
     if not torrents:
         return web.json_response({"streams": []})
 
-    logging.info(f"Total unique torrents (UNIT3D + YGG + ABN + C411 + Torr9): {len(torrents)}")
+    logging.info(f"Total unique torrents (UNIT3D + YGG + ABN + C411 + Torr9 + Tr4ker): {len(torrents)}")
 
     streams = []
     host_url = f"{request.scheme}://{request.host}"
@@ -694,6 +709,7 @@ async def handle_stream(request):
                        "\n🎬 ABN" if torrent.get('source') == 'abn' else \
                        "\n📡 C411" if torrent.get('source') == 'c411' else \
                        "\n🔥 Torr9" if torrent.get('source') == 'torr9' else \
+                       "\n🎯 Tr4ker" if torrent.get('source') == 'tr4ker' else \
                        f"\n🌐 {clean_name}"
         
         size_str = format_size(torrent.get('size', 0))
@@ -759,6 +775,7 @@ async def handle_stream(request):
                                "🎬 ABN" if torrent.get('source') == 'abn' else \
                                "📡 C411" if torrent.get('source') == 'c411' else \
                                "🔥 Torr9" if torrent.get('source') == 'torr9' else \
+                               "🎯 Tr4ker" if torrent.get('source') == 'tr4ker' else \
                                f"🌐 {clean_name}"
 
                 size_str = format_size(torrent.get('size', 0))

@@ -475,7 +475,7 @@
                 <span class="title-text">Frenchio</span>
                 <span class="version-badge" id="versionBadge"></span>
             </h1>
-            <div class="subtitle">Streamer depuis UNIT3D, YGG, ABN, C411 & Torr9 via AllDebrid,
+            <div class="subtitle">Streamer depuis UNIT3D, YGG, ABN, C411, Torr9 & Tr4ker via AllDebrid,
                 TorBox,
                 Debrid-Link ou
                 qBittorrent</div>
@@ -815,6 +815,24 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Tr4ker -->
+                <div class="provider-card" id="providerTr4ker" onclick="toggleProvider('providerTr4ker')">
+                    <div class="provider-header">
+                        <span class="provider-name">
+                            <span class="provider-dot"></span>
+                            Tr4ker
+                        </span>
+                        <span class="provider-chevron">▼</span>
+                    </div>
+                    <div class="provider-body">
+                        <div class="form-group">
+                            <label for="tr4kerApikey">Clé API</label>
+                            <input type="text" id="tr4kerApikey" placeholder="tr4k_..."
+                                onclick="event.stopPropagation()">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -922,6 +940,7 @@
                 <li class="sortable-item" data-id="torr9"><span class="drag-handle">≡</span> 🔥 Torr9</li>
                 <li class="sortable-item" data-id="abn"><span class="drag-handle">≡</span> 🎬 ABN</li>
                 <li class="sortable-item" data-id="c411"><span class="drag-handle">≡</span> 📡 C411</li>
+                <li class="sortable-item" data-id="tr4ker"><span class="drag-handle">≡</span> 🎯 Tr4ker</li>
             </ul>
         </div>
 
@@ -990,7 +1009,8 @@
                 'providerYgg': ['yggPasskey'],
                 'providerAbn': ['abnUsername'],
                 'providerC411': ['c411Apikey'],
-                'providerTorr9': ['torr9Passkey']
+                'providerTorr9': ['torr9Passkey'],
+                'providerTr4ker': ['tr4kerApikey']
             };
             for (const [cardId, inputIds] of Object.entries(providerMap)) {
                 if (cardId === 'providerYgg') continue; // Always active
@@ -1070,11 +1090,12 @@
             document.getElementById('abnPassword').value = prefillConfig.abn_password || '';
             document.getElementById('c411Apikey').value = prefillConfig.c411_apikey || '';
             document.getElementById('torr9Passkey').value = prefillConfig.torr9_passkey || '';
+            document.getElementById('tr4kerApikey').value = prefillConfig.tr4ker_apikey || '';
 
             // Mettre à jour les états actifs des provider cards
             updateProviderActiveStates();
             // Ouvrir automatiquement les cards remplies
-            ['providerYgg', 'providerAbn', 'providerC411', 'providerTorr9'].forEach(id => {
+            ['providerYgg', 'providerAbn', 'providerC411', 'providerTorr9', 'providerTr4ker'].forEach(id => {
                 const card = document.getElementById(id);
                 if (card && card.classList.contains('active') && id !== 'providerYgg') {
                     card.classList.add('expanded');
@@ -1206,6 +1227,7 @@
             const abnPassword = document.getElementById('abnPassword').value.trim();
             const c411Apikey = document.getElementById('c411Apikey').value.trim();
             const torr9Passkey = document.getElementById('torr9Passkey').value.trim();
+            const tr4kerApikey = document.getElementById('tr4kerApikey').value.trim();
             const maxSize = parseInt(document.getElementById('maxSize').value) || 0;
             const sortBy = document.getElementById('sortBy').value;
 
@@ -1259,6 +1281,7 @@
                 abn_password: abnPassword,
                 c411_apikey: c411Apikey,
                 torr9_passkey: torr9Passkey,
+                tr4ker_apikey: tr4kerApikey,
                 max_size: maxSize,
                 sort_by: sortBy,
                 providers_order: providersOrder,

@@ -12,7 +12,7 @@ Suite à la fermeture de YGG aux services de debrid, cet addon permet de continu
 
 ## ✨ Fonctionnalités
 
-- 🔍 **Recherche multi-trackers** : UNIT3D, Sharewood, YGGTorrent, ABNormal, La-Cale
+- 🔍 **Recherche multi-trackers** : UNIT3D, YGGTorrent, ABNormal, C411, Torr9, Tr4ker
 - ⚡ **Débridage multi-services** : AllDebrid, TorBox, Debrid-Link - Streaming instantané des torrents cachés
 - proxy **MediaFlow** optionnel : transite le lien final de lecture via votre instance MediaFlow
 - 📥 **qBittorrent Support** : Streaming direct pour les torrents non-cachés
@@ -29,9 +29,11 @@ Suite à la fermeture de YGG aux services de debrid, cet addon permet de continu
 - [TMDB API Key](https://www.themoviedb.org/settings/api) (gratuit)
 - **Au moins un tracker parmi** :
   - Trackers **UNIT3D** (avec API Token)
-  - [Sharewood](https://www.sharewood.tv/) (Passkey)
-  - [YGGTorrent](https://www.ygg.re/) (Passkey optionnelle, activé par défaut)
+  - [YGGTorrent](https://www.ygg.re/) (activé par défaut, sans compte)
   - [ABNormal](https://abn.lol/) (Username/Password)
+  - [C411](https://c411.org/) (Clé API)
+  - [Torr9](https://torr9.net/) (Passkey)
+  - [Tr4ker](https://tr4ker.net/) (Clé API)
 
 ### Options de streaming
 
