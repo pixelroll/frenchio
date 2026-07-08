@@ -288,6 +288,26 @@ class QBittorrentService:
         Orchestre l'ajout du torrent et retourne l'URL de streaming IMMÉDIATEMENT.
         Le téléchargement se fait en arrière-plan, le player lit au fur et à mesure.
         """
+        h = info_hash.lower()
+
+        # Fast-path: si le torrent est déjà actif (seek libmpv ou relance), on retourne l'URL immédiatement
+        # sans re-télécharger le .torrent ni attendre l'allocation disque.
+        # Évite le timeout libmpv sur les requêtes Range successives (MKV index seek).
+        try:
+            if self.client:
+                torrents = self.client.torrents_info(torrent_hashes=h)
+                if torrents:
+                    state = torrents[0].get('state', '')
+                    bad_states = ('metaDL', 'allocating', 'missingFiles', 'error', 'checkingResumeData', 'checkingUP')
+                    if state not in bad_states:
+                        logging.info(f"⚡ Fast-path: torrent {h[:8]} already active (state={state})")
+                        target_file = self.get_torrent_files(h, season=season, episode=episode, fast_mode=True)
+                        if target_file:
+                            safe_path = urllib.parse.quote(target_file)
+                            return f"{self.public_url_base}/{safe_path}"
+        except Exception as e:
+            logging.warning(f"Fast-path check failed: {e}")
+
         if not self.add_torrent(torrent_data, is_file):
             return None
 

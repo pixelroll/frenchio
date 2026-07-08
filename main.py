@@ -848,9 +848,25 @@ async def handle_resolve(request):
             public_url_base=qbit_config['public_url']
         )
         
+        # Magnet links passés directement à qBittorrent sans download HTTP
+        if download_link.startswith('magnet:'):
+            logging.info("Magnet link detected, passing directly to qBittorrent")
+            stream_url = qbit_service.manage_stream(
+                download_link,
+                info_hash,
+                is_file=False,
+                season=int(season) if season else None,
+                episode=int(episode) if episode else None
+            )
+            if stream_url:
+                logging.info(f"qBittorrent stream ready: {stream_url}")
+                raise web.HTTPMovedPermanently(finalize_stream_url(stream_url, config))
+            else:
+                return web.Response(status=404, text="Could not start qBittorrent stream")
+
         # Télécharger le .torrent
         logging.info(f"Downloading torrent from: {download_link[:100]}...")
-        
+
         # Vérifier si c'est un lien ABN qui nécessite une authentification
         if 'abn.lol' in download_link or 'abnormal.ws' in download_link:
             if config.get('abn_username') and config.get('abn_password'):

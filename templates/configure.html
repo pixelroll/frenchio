@@ -1236,13 +1236,12 @@
                 return;
             }
 
-            if (selectedDebrid === 'none' && !qbittorrentEnabled) {
-                alert("Erreur : qBittorrent est désactivé sur ce serveur. Vous devez configurer un service de débridage (AllDebrid, TorBox, Debrid-Link ou Real-Debrid).");
-                return;
-            }
-
             if (selectedDebrid === 'none' && !hasQbit) {
-                alert("Erreur : Vous devez configurer soit un service de débridage (AllDebrid/TorBox/Debrid-Link/Real-Debrid), soit qBittorrent.");
+                if (!qbittorrentEnabled) {
+                    alert("Erreur : qBittorrent est désactivé sur ce serveur. Vous devez configurer un service de débridage (AllDebrid, TorBox, Debrid-Link ou Real-Debrid).");
+                } else {
+                    alert("Erreur : Vous devez configurer soit un service de débridage (AllDebrid/TorBox/Debrid-Link/Real-Debrid), soit qBittorrent.");
+                }
                 return;
             }
 
