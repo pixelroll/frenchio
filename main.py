@@ -60,7 +60,7 @@ if HTTP_PROXY or HTTPS_PROXY:
         logging.info(f"  HTTPS_PROXY: {HTTPS_PROXY}")
 
 # Version de l'application
-APP_VERSION = "1.5.1"
+APP_VERSION = "1.5.2"
 
 # Stremio Addons Config (signature)
 STREMIO_ADDONS_CONFIG = {
@@ -72,6 +72,10 @@ STREMIO_ADDONS_CONFIG = {
 QBITTORRENT_ENABLE = os.getenv('QBITTORRENT_ENABLE', 'true').lower() in ('true', '1', 'yes')
 MANIFEST_TITLE_SUFFIX = os.getenv('MANIFEST_TITLE_SUFFIX', '')
 MANIFEST_BLURB = os.getenv('MANIFEST_BLURB', '')
+
+# Proxy de streaming qBittorrent : répertoire local où les fichiers sont montés.
+# Quand défini, Frenchio sert les fichiers directement en attendant les pièces (évite les zéros).
+QBIT_PROXY_DIR = os.getenv('QBIT_PROXY_DIR', '')
 
 logging.info(f"qBittorrent enabled: {QBITTORRENT_ENABLE}")
 if MANIFEST_TITLE_SUFFIX:
@@ -848,6 +852,18 @@ async def handle_resolve(request):
             public_url_base=qbit_config['public_url']
         )
         
+        # Fast-path: si le torrent est déjà actif, on retourne l'URL sans rien télécharger.
+        # Critique pour les seek libmpv (Range requests) qui repassent par /resolve.
+        fast_url = qbit_service.try_fast_path(
+            info_hash,
+            season=int(season) if season else None,
+            episode=int(episode) if episode else None
+        )
+        if fast_url:
+            logging.info(f"⚡ Fast-path hit, skipping torrent download")
+            fast_url = _qbit_proxy_url(request, config_str, info_hash, fast_url)
+            raise web.HTTPMovedPermanently(finalize_stream_url(fast_url, config))
+
         # Magnet links passés directement à qBittorrent sans download HTTP
         if download_link.startswith('magnet:'):
             logging.info("Magnet link detected, passing directly to qBittorrent")
@@ -859,6 +875,7 @@ async def handle_resolve(request):
                 episode=int(episode) if episode else None
             )
             if stream_url:
+                stream_url = _qbit_proxy_url(request, config_str, info_hash, stream_url)
                 logging.info(f"qBittorrent stream ready: {stream_url}")
                 raise web.HTTPMovedPermanently(finalize_stream_url(stream_url, config))
             else:
@@ -905,11 +922,12 @@ async def handle_resolve(request):
         )
         
         if stream_url:
+            stream_url = _qbit_proxy_url(request, config_str, info_hash, stream_url)
             logging.info(f"qBittorrent stream ready: {stream_url}")
             raise web.HTTPMovedPermanently(finalize_stream_url(stream_url, config))
         else:
             return web.Response(status=404, text="Could not start qBittorrent stream")
-    
+
     # === MODE AllDebrid ===
     elif service_name == 'alldebrid':
         alldebrid_key = config.get('alldebrid_key')
@@ -1014,6 +1032,135 @@ async def handle_resolve(request):
     else:
         return web.Response(status=400, text=f"Unknown service: {service_name}")
 
+async def handle_qbit_stream(request):
+    """
+    Proxy de streaming pièce-conscient pour qBittorrent.
+    Pour chaque Range request, attend que les pièces correspondantes soient téléchargées
+    avant de servir — évite de servir des zéros (fichier pré-alloué non encore rempli).
+    """
+    import re as _re
+    import mimetypes
+
+    config_str = request.match_info.get('config', '')
+    config = decode_config(config_str)
+    if not config:
+        return web.Response(status=400, text="Invalid config")
+
+    info_hash = request.match_info.get('hash', '').lower()
+    rel_path = urlunquote(request.match_info.get('path', ''))
+    local_path = os.path.join(QBIT_PROXY_DIR, rel_path)
+
+    if not os.path.exists(local_path):
+        logging.warning(f"qfile: not found: {local_path}")
+        return web.Response(status=404, text="File not found")
+
+    file_size = os.path.getsize(local_path)
+
+    # Parse du Range header
+    range_header = request.headers.get('Range', '')
+    start, end, is_range = 0, file_size - 1, False
+    if range_header:
+        m = _re.match(r'bytes=(\d*)-(\d*)', range_header)
+        if m:
+            is_range = True
+            s, e = m.group(1), m.group(2)
+            start = int(s) if s else 0
+            end = int(e) if e else file_size - 1
+    end = min(end, file_size - 1)
+    length = end - start + 1
+
+    # Récupérer piece_size une fois pour le streaming pièce-par-pièce
+    loop = asyncio.get_event_loop()
+    qbit_service = None
+    piece_size = None
+    qbit_config = config.get('qbittorrent')
+    if qbit_config and info_hash:
+        try:
+            qbit_service = QBittorrentService(
+                host=qbit_config['host'],
+                username=qbit_config.get('username', ''),
+                password=qbit_config.get('password', ''),
+                public_url_base=qbit_config.get('public_url', '')
+            )
+            piece_size = await loop.run_in_executor(None, qbit_service.get_piece_size, info_hash)
+        except Exception as e:
+            logging.warning(f"qfile init error: {e}")
+
+    content_type, _ = mimetypes.guess_type(local_path)
+    content_type = content_type or 'application/octet-stream'
+
+    headers = {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': str(length),
+        'Content-Type': content_type,
+    }
+    if is_range:
+        headers['Content-Range'] = f'bytes {start}-{end}/{file_size}'
+
+    if request.method == 'HEAD':
+        return web.Response(status=206 if is_range else 200, headers=headers)
+
+    response = web.StreamResponse(status=206 if is_range else 200, headers=headers)
+    await response.prepare(request)
+
+    try:
+        async with aiofiles.open(local_path, 'rb') as f:
+            await f.seek(start)
+            pos = start
+            remaining = length
+            while remaining > 0:
+                # Attendre que la pièce courante soit téléchargée avant de la servir.
+                # On attend pièce par pièce pour envoyer les données au fur et à mesure
+                # du téléchargement, sans jamais servir de zéros (preallocated).
+                if piece_size and qbit_service and qbit_service.client:
+                    current_piece = pos // piece_size
+                    deadline = loop.time() + 30
+
+                    def _piece_ready(p=current_piece):
+                        try:
+                            states = qbit_service.client.torrents_piece_states(torrent_hash=info_hash)
+                            return bool(states and len(states) > p and states[p] == 2)
+                        except Exception:
+                            return True
+                    while loop.time() < deadline:
+                        ready = await loop.run_in_executor(None, _piece_ready)
+                        if ready:
+                            break
+                        await asyncio.sleep(0.1)
+
+                # Lire jusqu'à la fin de la pièce courante (ou fin du range)
+                if piece_size:
+                    current_piece = pos // piece_size
+                    piece_end = (current_piece + 1) * piece_size
+                    to_read = min(remaining, piece_end - pos, 65536)
+                else:
+                    to_read = min(remaining, 65536)
+
+                chunk = await f.read(to_read)
+                if not chunk:
+                    break
+                await response.write(chunk)
+                pos += len(chunk)
+                remaining -= len(chunk)
+        await response.write_eof()
+    except (ConnectionResetError, BrokenPipeError, asyncio.CancelledError):
+        pass  # Normal: le player a fermé la connexion (seek ou fin de buffer)
+    return response
+
+
+def _qbit_proxy_url(request, config_str, info_hash, stream_url):
+    """
+    Si QBIT_PROXY_DIR est défini, remplace l'URL du fileserver par le proxy Frenchio.
+    Sinon, retourne l'URL directe inchangée.
+    """
+    if not QBIT_PROXY_DIR or not stream_url:
+        return stream_url
+    parsed = urlparse(stream_url)
+    file_path = parsed.path.lstrip('/')
+    host_url = f"{request.scheme}://{request.host}"
+    return f"{host_url}/{config_str}/qfile/{info_hash}/{file_path}"
+
+
 async def get_app():
     app = web.Application(middlewares=[cors_middleware])
     app.router.add_get('/', handle_configure)
@@ -1027,6 +1174,10 @@ async def get_app():
     
     # Routes de résolution (avec config)
     app.router.add_get('/{config}/resolve/{service}/{hash}', handle_resolve)
+
+    # Proxy de streaming qBittorrent (pièce-conscient)
+    app.router.add_get('/{config}/qfile/{hash}/{path:.*}', handle_qbit_stream)
+    app.router.add_route('HEAD', '/{config}/qfile/{hash}/{path:.*}', handle_qbit_stream)
     
     # Anciennes routes (compatibilité)
     app.router.add_get('/resolve/{service}/{api_key}/{hash}', handle_resolve)

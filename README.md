@@ -107,9 +107,6 @@ Ajoutez un ou plusieurs trackers compatibles UNIT3D :
 
 > **Note** : UNIT3D est une plateforme de tracker BitTorrent. De nombreux trackers français utilisent ce logiciel. L'addon est compatible avec tous les trackers basés sur UNIT3D.
 
-#### Sharewood (Optionnel)
-- **Passkey** : Votre passkey Sharewood (32 caractères)
-
 #### YGGTorrent (Activé par défaut)
 - **Passkey** : Votre passkey YGG (32 caractères) - Optionnelle
 
@@ -151,9 +148,10 @@ Stremio
    ↓
 Frenchio (recherche parallèle)
    ├─→ Trackers UNIT3D
-   ├─→ Sharewood
    ├─→ YGGTorrent (toujours actif)
-   └─→ ABNormal
+   ├─→ ABNormal
+   ├─→ C411 / Torr9 / Tr4ker
+   └─→ (et autres trackers configurés)
    ↓
 Résultats filtrés
    ↓
@@ -391,9 +389,11 @@ frenchio/
 ├── services/
 │   ├── tmdb.py            # Service TMDB (IMDB → TMDB)
 │   ├── unit3d.py          # Client UNIT3D multi-tracker
-│   ├── sharewood.py       # Client Sharewood API
 │   ├── ygg.py             # Client YGGAPI
 │   ├── abn.py             # Client ABNormal
+│   ├── c411.py            # Client C411
+│   ├── torr9.py           # Client Torr9
+│   ├── tr4ker.py          # Client Tr4ker (Torznab)
 │   ├── alldebrid.py       # Service AllDebrid (debrid)
 │   ├── torbox.py          # Service TorBox (debrid)
 │   ├── debridlink.py      # Service Debrid-Link (debrid)

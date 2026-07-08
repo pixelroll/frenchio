@@ -283,16 +283,23 @@ class QBittorrentService:
             logging.error(traceback.format_exc())
             return False
 
-    def manage_stream(self, torrent_data, info_hash, is_file=False, season=None, episode=None):
+    def get_piece_size(self, info_hash):
+        """Retourne la taille des pièces du torrent en bytes."""
+        if not self.client:
+            return None
+        try:
+            props = self.client.torrents_properties(torrent_hash=info_hash.lower())
+            return props.piece_size
+        except Exception as e:
+            logging.warning(f"Could not get piece size for {info_hash[:8]}: {e}")
+            return None
+
+    def try_fast_path(self, info_hash, season=None, episode=None):
         """
-        Orchestre l'ajout du torrent et retourne l'URL de streaming IMMÉDIATEMENT.
-        Le téléchargement se fait en arrière-plan, le player lit au fur et à mesure.
+        Vérifie si le torrent est déjà actif et retourne l'URL immédiatement.
+        À appeler AVANT tout download de .torrent pour éviter la latence sur les seek libmpv.
         """
         h = info_hash.lower()
-
-        # Fast-path: si le torrent est déjà actif (seek libmpv ou relance), on retourne l'URL immédiatement
-        # sans re-télécharger le .torrent ni attendre l'allocation disque.
-        # Évite le timeout libmpv sur les requêtes Range successives (MKV index seek).
         try:
             if self.client:
                 torrents = self.client.torrents_info(torrent_hashes=h)
@@ -307,6 +314,14 @@ class QBittorrentService:
                             return f"{self.public_url_base}/{safe_path}"
         except Exception as e:
             logging.warning(f"Fast-path check failed: {e}")
+        return None
+
+    def manage_stream(self, torrent_data, info_hash, is_file=False, season=None, episode=None):
+        """
+        Orchestre l'ajout du torrent et retourne l'URL de streaming IMMÉDIATEMENT.
+        Le téléchargement se fait en arrière-plan, le player lit au fur et à mesure.
+        """
+        h = info_hash.lower()
 
         if not self.add_torrent(torrent_data, is_file):
             return None
@@ -327,7 +342,6 @@ class QBittorrentService:
         # Attendre que qBittorrent finisse d'allouer l'espace disque.
         # Sans cette attente, le fichier n'existe pas encore physiquement → HTTP 404.
         logging.info("⏳ Waiting for disk allocation to complete...")
-        h = info_hash.lower()
         for i in range(15):
             try:
                 torrents = self.client.torrents_info(torrent_hashes=h)
@@ -341,10 +355,27 @@ class QBittorrentService:
                 logging.warning(f"Error checking torrent state: {e}")
             time.sleep(1.0)
 
+        # Attendre que les premiers ET derniers pieces soient téléchargés.
+        # libmpv seek automatiquement à la fin du MKV pour lire l'index/cues.
+        # Sans ça, il lit des zéros (preallocated) → seek en boucle côté Stremio.
+        logging.info("⏳ Waiting for first/last pieces (MKV index)...")
+        for i in range(15):
+            try:
+                states = self.client.torrents_piece_states(torrent_hash=h)
+                if states and len(states) >= 2:
+                    first_ok = states[0] == 2
+                    last_ok = states[-1] == 2
+                    logging.info(f"   Pieces: first={'✅' if first_ok else '⏳'} last={'✅' if last_ok else '⏳'} ({i+1}/60)")
+                    if first_ok and last_ok:
+                        logging.info("   ✅ First/last pieces ready")
+                        break
+            except Exception as e:
+                logging.warning(f"Piece state check failed: {e}")
+                break
+            time.sleep(1.0)
+
         safe_path = urllib.parse.quote(target_file)
         stream_url = f"{self.public_url_base}/{safe_path}"
 
-        logging.info(f"🎬 INSTANT STREAM ready: {stream_url}")
-        logging.info(f"   ⚡ Player will read file as it downloads (sequential mode)")
-
+        logging.info(f"🎬 STREAM ready: {stream_url}")
         return stream_url

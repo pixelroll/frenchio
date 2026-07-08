@@ -1,0 +1,8 @@
+:8001 {
+    root * /downloads
+    file_server browse
+    header {
+        Access-Control-Allow-Origin *
+        Accept-Ranges bytes
+    }
+}
