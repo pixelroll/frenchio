@@ -7,7 +7,7 @@ French private/semi-private trackers with AllDebrid integration and qBittorrent
 fallback for non-cached torrents.
 
 Features:
-    - Multi-tracker search (UNIT3D, YGGTorrent, ABNormal, C411, Torr9)
+    - Multi-tracker search (UNIT3D, YGGTorrent, ABNormal, C411)
     - AllDebrid instant caching detection
     - qBittorrent sequential streaming for non-cached torrents
     - Intelligent episode selection in season packs
@@ -37,7 +37,6 @@ from services.realdebrid import RealDebridService
 from services.ygg import YggService
 from services.abn import ABNService
 from services.c411 import C411Service
-from services.torr9 import Torr9Service
 from services.qbittorrent import QBittorrentService
 from services.tr4ker import Tr4kerService
 from services.nyaa import NyaaService
@@ -216,7 +215,7 @@ async def handle_manifest(request):
         addon_name += f" {MANIFEST_TITLE_SUFFIX}"
     
     # Description de base (le blurb s'affiche dans la page de config)
-    description = "Stream from French Trackers (UNIT3D, YGG, ABN, C411, Torr9) via AllDebrid, TorBox, DebridLink ou qBittorrent"
+    description = "Stream from French Trackers (UNIT3D, YGG, ABN, C411) via AllDebrid, TorBox, DebridLink ou qBittorrent"
 
     manifest = {
         "id": "community.aymene69.frenchio",
@@ -469,19 +468,6 @@ async def handle_stream(request):
         async def empty(): return []
         tasks.append(empty())
 
-    # Tâche Torr9
-    if config.get('torr9_passkey'):
-        logging.info("Starting Torr9 search")
-        torr9_service = Torr9Service(config.get('torr9_passkey'))
-
-        if stream_type == 'movie':
-            tasks.append(torr9_service.search_movie(target_title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
-        elif stream_type == 'series':
-            tasks.append(torr9_service.search_series(target_title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
-    else:
-        async def empty(): return []
-        tasks.append(empty())
-
     # Tâche Tr4ker
     if config.get('tr4ker_apikey'):
         logging.info("Starting Tr4ker search")
@@ -542,19 +528,18 @@ async def handle_stream(request):
         ygg_results = safe(1)
         abn_results = safe(2)
         c411_results = safe(3)
-        torr9_results = safe(4)
-        tr4ker_results = safe(5)
-        nekobt_results = safe(6)
-        nyaa_results = safe(7)
+        tr4ker_results = safe(4)
+        nekobt_results = safe(5)
+        nyaa_results = safe(6)
     finally:
         # Fermer la session ABN proprement
         if abn_service:
             await abn_service.close()
 
-    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}, C411={len(c411_results)}, Torr9={len(torr9_results)}, Tr4ker={len(tr4ker_results)}, NekoBT={len(nekobt_results)}, Nyaa={len(nyaa_results)}")
+    logging.info(f"Results breakdown: UNIT3D={len(unit3d_results)}, YGG={len(ygg_results)}, ABN={len(abn_results)}, C411={len(c411_results)}, Tr4ker={len(tr4ker_results)}, NekoBT={len(nekobt_results)}, Nyaa={len(nyaa_results)}")
 
     # Fusion et Déduplication
-    all_torrents = unit3d_results + ygg_results + abn_results + c411_results + torr9_results + tr4ker_results + nekobt_results + nyaa_results
+    all_torrents = unit3d_results + ygg_results + abn_results + c411_results + tr4ker_results + nekobt_results + nyaa_results
     
     # Tri préalable selon providers_order pour que le tracker favori soit gardé lors de la déduplication
     providers_order = config.get('providers_order', [])
@@ -648,7 +633,7 @@ async def handle_stream(request):
     if not torrents:
         return web.json_response({"streams": []})
 
-    logging.info(f"Total unique torrents (UNIT3D + YGG + ABN + C411 + Torr9 + Tr4ker + NekoBT + Nyaa): {len(torrents)}")
+    logging.info(f"Total unique torrents (UNIT3D + YGG + ABN + C411 + Tr4ker + NekoBT + Nyaa): {len(torrents)}")
 
     streams = []
     host_url = f"{request.scheme}://{request.host}"
@@ -774,7 +759,6 @@ async def handle_stream(request):
         source_prefix = "\n🐝 YGG" if torrent.get('source') == 'ygg' else \
                        "\n🎬 ABN" if torrent.get('source') == 'abn' else \
                        "\n📡 C411" if torrent.get('source') == 'c411' else \
-                       "\n🔥 Torr9" if torrent.get('source') == 'torr9' else \
                        "\n🎯 Tr4ker" if torrent.get('source') == 'tr4ker' else \
                        f"\n🌐 {clean_name}"
         
@@ -840,7 +824,6 @@ async def handle_stream(request):
                 source_prefix = "🐝 YGG" if torrent.get('source') == 'ygg' else \
                                "🎬 ABN" if torrent.get('source') == 'abn' else \
                                "📡 C411" if torrent.get('source') == 'c411' else \
-                               "🔥 Torr9" if torrent.get('source') == 'torr9' else \
                                "🎯 Tr4ker" if torrent.get('source') == 'tr4ker' else \
                                f"🌐 {clean_name}"
 

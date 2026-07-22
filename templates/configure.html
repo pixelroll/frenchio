@@ -475,7 +475,7 @@
                 <span class="title-text">Frenchio</span>
                 <span class="version-badge" id="versionBadge"></span>
             </h1>
-            <div class="subtitle">Streamer depuis UNIT3D, YGG, ABN, C411, Torr9 & Tr4ker via AllDebrid,
+            <div class="subtitle">Streamer depuis UNIT3D, YGG, ABN, C411 & Tr4ker via AllDebrid,
                 TorBox,
                 Debrid-Link ou
                 qBittorrent</div>
@@ -798,23 +798,7 @@
                     </div>
                 </div>
 
-                <!-- Torr9 -->
-                <div class="provider-card" id="providerTorr9" onclick="toggleProvider('providerTorr9')">
-                    <div class="provider-header">
-                        <span class="provider-name">
-                            <span class="provider-dot"></span>
-                            Torr9
-                        </span>
-                        <span class="provider-chevron">▼</span>
-                    </div>
-                    <div class="provider-body">
-                        <div class="form-group">
-                            <label for="torr9Passkey">Passkey</label>
-                            <input type="text" id="torr9Passkey" placeholder="Passkey"
-                                onclick="event.stopPropagation()">
-                        </div>
-                    </div>
-                </div>
+
 
                 <!-- Tr4ker -->
                 <div class="provider-card" id="providerTr4ker" onclick="toggleProvider('providerTr4ker')">
@@ -977,7 +961,6 @@
             <ul id="trackerOrderList" class="sortable-list">
                 <li class="sortable-item" data-id="unit3d"><span class="drag-handle">≡</span> 🔒 UNIT3D</li>
                 <li class="sortable-item" data-id="ygg"><span class="drag-handle">≡</span> 🐝 YGG</li>
-                <li class="sortable-item" data-id="torr9"><span class="drag-handle">≡</span> 🔥 Torr9</li>
                 <li class="sortable-item" data-id="abn"><span class="drag-handle">≡</span> 🎬 ABN</li>
                 <li class="sortable-item" data-id="c411"><span class="drag-handle">≡</span> 📡 C411</li>
                 <li class="sortable-item" data-id="tr4ker"><span class="drag-handle">≡</span> 🎯 Tr4ker</li>
@@ -1051,7 +1034,6 @@
                 'providerYgg': ['yggPasskey'],
                 'providerAbn': ['abnUsername'],
                 'providerC411': ['c411Apikey'],
-                'providerTorr9': ['torr9Passkey'],
                 'providerTr4ker': ['tr4kerApikey'],
                 'providerNeko': ['nekoApikey']
             };
@@ -1141,7 +1123,6 @@
             document.getElementById('abnUsername').value = prefillConfig.abn_username || '';
             document.getElementById('abnPassword').value = prefillConfig.abn_password || '';
             document.getElementById('c411Apikey').value = prefillConfig.c411_apikey || '';
-            document.getElementById('torr9Passkey').value = prefillConfig.torr9_passkey || '';
             document.getElementById('tr4kerApikey').value = prefillConfig.tr4ker_apikey || '';
             document.getElementById('nekoApikey').value = prefillConfig.neko_apikey || '';
             document.getElementById('nyaaEnabled').checked = !!prefillConfig.nyaa_enabled;
@@ -1149,7 +1130,7 @@
             // Mettre à jour les états actifs des provider cards
             updateProviderActiveStates();
             // Ouvrir automatiquement les cards remplies
-            ['providerYgg', 'providerAbn', 'providerC411', 'providerTorr9', 'providerTr4ker', 'providerNeko', 'providerNyaa'].forEach(id => {
+            ['providerYgg', 'providerAbn', 'providerC411', 'providerTr4ker', 'providerNeko', 'providerNyaa'].forEach(id => {
                 const card = document.getElementById(id);
                 if (card && card.classList.contains('active') && id !== 'providerYgg') {
                     card.classList.add('expanded');
@@ -1280,7 +1261,6 @@
             const abnUsername = document.getElementById('abnUsername').value.trim();
             const abnPassword = document.getElementById('abnPassword').value.trim();
             const c411Apikey = document.getElementById('c411Apikey').value.trim();
-            const torr9Passkey = document.getElementById('torr9Passkey').value.trim();
             const tr4kerApikey = document.getElementById('tr4kerApikey').value.trim();
             const nekoApikey = document.getElementById('nekoApikey').value.trim();
             const nyaaEnabled = document.getElementById('nyaaEnabled').checked;
@@ -1336,7 +1316,6 @@
                 abn_username: abnUsername,
                 abn_password: abnPassword,
                 c411_apikey: c411Apikey,
-                torr9_passkey: torr9Passkey,
                 tr4ker_apikey: tr4kerApikey,
                 neko_apikey: nekoApikey,
                 nyaa_enabled: nyaaEnabled,
